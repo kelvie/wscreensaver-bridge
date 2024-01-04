@@ -646,6 +646,7 @@ dependencies = [
  "dbus-crossroads",
  "dbus-tokio",
  "futures",
+ "log",
  "rand",
  "tokio",
  "wayland-client",

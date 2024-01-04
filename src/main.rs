@@ -88,9 +88,6 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     c.request_name("org.freedesktop.ScreenSaver", false, true, false)
         .await?;
 
-    // Create a new crossroads instance.
-    // The instance is configured so that introspection and properties interfaces
-    // are added by default on object path additions.
     let mut cr = Crossroads::new();
 
     // Enable async support for the crossroads instance.
@@ -101,6 +98,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }),
     )));
 
+    log::info!("Waiting for wayland compositor");
     let inhibit_manager = wayland::get_inhibit_manager().await?;
 
     let iface_token = xdg_screensaver::register_org_freedesktop_screen_saver(&mut cr);
@@ -110,7 +108,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         OrgFreedesktopScreenSaverServer {inhibit_manager, inhibitors_by_cookie: HashMap::new()},
     );
 
-    // We add the Crossroads instance to the connection so that incoming method calls will be handled.
+    eprintln!("Starting ScreenSaver to Wayland bridge");
     c.start_receive(
         MatchRule::new_method_call(),
         Box::new(move |msg, conn| {

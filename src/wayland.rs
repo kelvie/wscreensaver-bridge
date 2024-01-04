@@ -3,8 +3,10 @@
 use futures::future::poll_fn;
 use wayland_client::{
     protocol::{
+        __interfaces::WL_COMPOSITOR_INTERFACE,
+        wl_compositor::WlCompositor,
         wl_registry::{self, WlRegistry},
-        wl_surface::WlSurface, wl_compositor::WlCompositor,
+        wl_surface::WlSurface,
     },
     Dispatch,
 };
@@ -21,6 +23,18 @@ struct DispatcherListener {
 }
 
 // TODO: how do I move these into another file?
+impl Dispatch<WlSurface, ()> for DispatcherListener {
+    fn event(
+        state: &mut Self,
+        proxy: &WlSurface,
+        event: <WlSurface as wayland_client::Proxy>::Event,
+        data: &(),
+        conn: &wayland_client::Connection,
+        qhandle: &wayland_client::QueueHandle<Self>,
+    ) {
+    }
+}
+
 impl Dispatch<WlCompositor, ()> for DispatcherListener {
     fn event(
         state: &mut Self,
@@ -71,7 +85,15 @@ impl Dispatch<WlRegistry, ()> for DispatcherListener {
                 interface,
                 version,
             } => {
+                if interface == WL_COMPOSITOR_INTERFACE.name {
+                    log::debug!("Found compositor");
+                    let compositor =
+                        registry.bind::<WlCompositor, _, _>(name, version, qhandle, ());
+                    let surface = compositor.create_surface(&qhandle, ());
+                    state.dummy_surface = Some(surface);
+                }
                 if interface == ZWP_IDLE_INHIBIT_MANAGER_V1_INTERFACE.name {
+                    log::debug!("Found inhibit manager");
                     let manager =
                         registry.bind::<ZwpIdleInhibitManagerV1, _, _>(name, version, qhandle, ());
                     state.manager = Some(manager);
@@ -114,13 +136,13 @@ pub async fn get_inhibit_manager() -> Result<InhibitorManager, Box<dyn std::erro
     let mut dl = DispatcherListener::default();
 
     loop {
-        poll_fn(|ctx| event_queue.poll_dispatch_pending(ctx, &mut dl)).await?;
-        if let (Some(manager), Some(dummy_surface)) = (dl.manager, dl.dummy_surface) {
+        event_queue.blocking_dispatch(&mut dl).unwrap();
+        if dl.manager.is_some() && dl.dummy_surface.is_some() {
             return Ok(InhibitorManager {
-                manager,
-                dummy_surface,
+                manager: dl.manager.take().unwrap(),
+                dummy_surface: dl.dummy_surface.take().unwrap(),
                 queue_handle: qh,
-            })
+            });
         }
     }
 }

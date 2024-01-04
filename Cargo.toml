@@ -10,6 +10,7 @@ dbus = "0.9.7"
 dbus-crossroads = "0.5.2"
 dbus-tokio = "0.7.6"
 futures = "0.3.30"
+log = "0.4.20"
 rand = "0.8.5"
 tokio = { version = "1.35.1", features = ["rt-multi-thread", "macros"] }
 wayland-client = "0.31.1"
