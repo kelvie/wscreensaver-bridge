@@ -1,0 +1,16 @@
+[package]
+name = "xdg-screensaver-idle-inhibit-bridge"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dbus = "0.9.7"
+dbus-crossroads = "0.5.2"
+dbus-tokio = "0.7.6"
+futures = "0.3.30"
+rand = "0.8.5"
+tokio = { version = "1.35.1", features = ["rt-multi-thread", "macros"] }
+wayland-client = "0.31.1"
+wayland-protocols = { version = "0.31.0", features = ["unstable", "client"] }
