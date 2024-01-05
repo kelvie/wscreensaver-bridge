@@ -1,6 +1,7 @@
 // get a wayland client
 
 use wayland_client::{
+    backend::WaylandError,
     protocol::{
         __interfaces::WL_COMPOSITOR_INTERFACE,
         wl_compositor::WlCompositor,
@@ -9,6 +10,7 @@ use wayland_client::{
     },
     Dispatch,
 };
+
 use wayland_protocols::wp::idle_inhibit::zv1::client::{
     __interfaces::ZWP_IDLE_INHIBIT_MANAGER_V1_INTERFACE,
     zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1,
@@ -69,6 +71,7 @@ impl Dispatch<ZwpIdleInhibitManagerV1, ()> for DispatcherListener {
     ) {
     }
 }
+
 impl Dispatch<WlRegistry, ()> for DispatcherListener {
     fn event(
         state: &mut Self,
@@ -109,16 +112,26 @@ pub(crate) struct InhibitorManager {
     manager: ZwpIdleInhibitManagerV1,
     dummy_surface: WlSurface,
     queue_handle: wayland_client::QueueHandle<DispatcherListener>,
+    conn: wayland_client::Connection,
 }
 
 impl InhibitorManager {
-    pub fn create_inhibitor(&self) -> ZwpIdleInhibitorV1 {
-        self.manager
-            .create_inhibitor(&self.dummy_surface, &self.queue_handle, ())
+    pub fn create_inhibitor(&self) -> Result<ZwpIdleInhibitorV1, WaylandError> {
+        let inhibitor = self
+            .manager
+            .create_inhibitor(&self.dummy_surface, &self.queue_handle, ());
+        match self.conn.roundtrip() {
+            Ok(_) => Ok(inhibitor),
+            Err(e) => Err(e),
+        }
     }
 
-    pub fn destroy_inhibitor(&self, inhibitor: ZwpIdleInhibitorV1) {
+    pub fn destroy_inhibitor(&self, inhibitor: ZwpIdleInhibitorV1) -> Result<(), WaylandError> {
         inhibitor.destroy();
+        match self.conn.roundtrip() {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -141,6 +154,7 @@ pub async fn get_inhibit_manager() -> Result<InhibitorManager, Box<dyn std::erro
                 manager: dl.manager.take().unwrap(),
                 dummy_surface: dl.dummy_surface.take().unwrap(),
                 queue_handle: qh,
+                conn,
             });
         }
     }

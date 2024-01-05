@@ -1,8 +1,8 @@
 // Bridbe between the org.freedesktop.ScreenSaver interface and the Wayland idle
 // inhibitor protocol.
 
-mod xdg_screensaver;
 mod wayland;
+mod xdg_screensaver;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -51,26 +51,55 @@ impl OrgFreedesktopScreenSaver for Arc<Mutex<OrgFreedesktopScreenSaverServer>> {
         application_name: String,
         reason_for_inhibit: String,
     ) -> Result<(u32,), dbus::MethodErr> {
-        log::info!("Inhibiting screensaver for {:?} because {:?}", application_name, reason_for_inhibit);
-        let inhibitor = self.lock().unwrap().inhibit_manager.create_inhibitor();
-        let cookie = self.lock().unwrap().insert_inhibitor(StoredInhibitor {
-            inhibitor,
-            name: application_name,
-            reason: reason_for_inhibit,
-        });
-
-        return Ok((cookie,));
+        log::info!(
+            "Inhibiting screensaver for {:?} because {:?}",
+            application_name,
+            reason_for_inhibit
+        );
+        match self.lock().unwrap().inhibit_manager.create_inhibitor() {
+            Ok(inhibitor) => Ok((self.lock().unwrap().insert_inhibitor(StoredInhibitor {
+                inhibitor,
+                name: application_name,
+                reason: reason_for_inhibit,
+            }),)),
+            Err(e) => {
+                log::error!("Failed to create inhibitor: {:?}", e);
+                Err(dbus::MethodErr::failed(&format!(
+                    "Failed to create inhibitor: {:?}",
+                    e
+                )))
+            }
+        }
     }
 
     fn un_inhibit(&mut self, cookie: u32) -> Result<(), dbus::MethodErr> {
         log::info!("Uninhibiting {:?}", cookie);
         let inhibitor = self.lock().unwrap().inhibitors_by_cookie.remove(&cookie);
-        log::info!("Inhibitor found? {:?}", inhibitor);
-        if let Some(inhibitor) = inhibitor {
-            self.lock().unwrap().inhibit_manager.destroy_inhibitor(inhibitor.inhibitor);
+        match inhibitor {
+            None => {
+                Err(dbus::MethodErr::failed(&format!(
+                    "No inhibitor with cookie {}",
+                    cookie
+                )))
+            },
+            Some(inhibitor) => {
+                match self
+                    .lock()
+                    .unwrap()
+                    .inhibit_manager
+                    .destroy_inhibitor(inhibitor.inhibitor)
+                {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        log::error!("Failed to destroy inhibitor: {:?}", e);
+                        Err(dbus::MethodErr::failed(&format!(
+                            "Failed to destroy inhibitor: {:?}",
+                            e
+                        )))
+                    }
+                }
+            }
         }
-
-        return Ok(());
     }
 }
 
