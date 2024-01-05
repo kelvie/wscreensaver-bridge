@@ -1,5 +1,5 @@
 [package]
-name = "xdg-screensaver-idle-inhibit-bridge"
+name = "wscreensaver-bridge"
 version = "0.1.0"
 edition = "2021"
 
