@@ -16,6 +16,8 @@ use wayland::InhibitorManager;
 use wayland_protocols::wp::idle_inhibit::zv1::client::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 use xdg_screensaver::OrgFreedesktopScreenSaver;
 
+// TODO: add a way to list inhibitors
+#[allow(dead_code)]
 #[derive(Debug)]
 struct StoredInhibitor {
     inhibitor: ZwpIdleInhibitorV1,

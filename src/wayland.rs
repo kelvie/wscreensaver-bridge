@@ -1,6 +1,5 @@
 // get a wayland client
 
-use futures::future::poll_fn;
 use wayland_client::{
     protocol::{
         __interfaces::WL_COMPOSITOR_INTERFACE,
@@ -25,48 +24,48 @@ struct DispatcherListener {
 // TODO: how do I move these into another file?
 impl Dispatch<WlSurface, ()> for DispatcherListener {
     fn event(
-        state: &mut Self,
-        proxy: &WlSurface,
-        event: <WlSurface as wayland_client::Proxy>::Event,
-        data: &(),
-        conn: &wayland_client::Connection,
-        qhandle: &wayland_client::QueueHandle<Self>,
+        _state: &mut Self,
+        _proxy: &WlSurface,
+        _event: <WlSurface as wayland_client::Proxy>::Event,
+        _data: &(),
+        _connn: &wayland_client::Connection,
+        _qhandle: &wayland_client::QueueHandle<Self>,
     ) {
     }
 }
 
 impl Dispatch<WlCompositor, ()> for DispatcherListener {
     fn event(
-        state: &mut Self,
-        proxy: &WlCompositor,
-        event: <WlCompositor as wayland_client::Proxy>::Event,
-        data: &(),
-        conn: &wayland_client::Connection,
-        qhandle: &wayland_client::QueueHandle<Self>,
+        _state: &mut Self,
+        _proxy: &WlCompositor,
+        _event: <WlCompositor as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &wayland_client::Connection,
+        _qhandle: &wayland_client::QueueHandle<Self>,
     ) {
     }
 }
 
 impl Dispatch<ZwpIdleInhibitorV1, ()> for DispatcherListener {
     fn event(
-        state: &mut Self,
-        proxy: &ZwpIdleInhibitorV1,
-        event: <ZwpIdleInhibitorV1 as wayland_client::Proxy>::Event,
-        data: &(),
-        conn: &wayland_client::Connection,
-        qhandle: &wayland_client::QueueHandle<Self>,
+        _state: &mut Self,
+        _proxy: &ZwpIdleInhibitorV1,
+        _event: <ZwpIdleInhibitorV1 as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &wayland_client::Connection,
+        _qhandle: &wayland_client::QueueHandle<Self>,
     ) {
     }
 }
 
 impl Dispatch<ZwpIdleInhibitManagerV1, ()> for DispatcherListener {
     fn event(
-        state: &mut Self,
-        proxy: &ZwpIdleInhibitManagerV1,
-        event: <ZwpIdleInhibitManagerV1 as wayland_client::Proxy>::Event,
-        data: &(),
-        conn: &wayland_client::Connection,
-        qhandle: &wayland_client::QueueHandle<Self>,
+        _state: &mut Self,
+        _proxy: &ZwpIdleInhibitManagerV1,
+        _event: <ZwpIdleInhibitManagerV1 as wayland_client::Proxy>::Event,
+        _data: &(),
+        _conn: &wayland_client::Connection,
+        _qhandle: &wayland_client::QueueHandle<Self>,
     ) {
     }
 }
@@ -75,8 +74,8 @@ impl Dispatch<WlRegistry, ()> for DispatcherListener {
         state: &mut Self,
         registry: &WlRegistry,
         event: <WlRegistry as wayland_client::Proxy>::Event,
-        data: &(),
-        conn: &wayland_client::Connection,
+        _data: &(),
+        _conn: &wayland_client::Connection,
         qhandle: &wayland_client::QueueHandle<Self>,
     ) {
         match event {
