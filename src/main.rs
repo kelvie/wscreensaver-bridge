@@ -5,6 +5,7 @@ mod xdg_screensaver;
 mod wayland;
 
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use dbus::channel::MatchingReceiver;
 use dbus::message::MatchRule;
@@ -30,8 +31,7 @@ struct OrgFreedesktopScreenSaverServer {
 
 impl OrgFreedesktopScreenSaverServer {
     fn insert_inhibitor(&mut self, inhibitor: StoredInhibitor) -> u32 {
-        // atomically find and insert a random cookie that doesn't exist yet
-        // TODO: how is this thread safe?
+        // find an insert a new cookie. we're locked so this should be gucci
         let cookie = loop {
             let cookie = rand::random();
             if !self.inhibitors_by_cookie.contains_key(&cookie) {
@@ -43,27 +43,29 @@ impl OrgFreedesktopScreenSaverServer {
     }
 }
 
-impl OrgFreedesktopScreenSaver for OrgFreedesktopScreenSaverServer {
+impl OrgFreedesktopScreenSaver for Arc<Mutex<OrgFreedesktopScreenSaverServer>> {
     fn inhibit(
         &mut self,
         application_name: String,
         reason_for_inhibit: String,
-    ) -> Result<u32, dbus::MethodErr> {
-        // TODO: create a surface??
-        let inhibitor = self.inhibit_manager.create_inhibitor();
-        let cookie = self.insert_inhibitor(StoredInhibitor {
+    ) -> Result<(u32,), dbus::MethodErr> {
+        log::info!("Inhibiting screensaver for {:?} because {:?}", application_name, reason_for_inhibit);
+        let inhibitor = self.lock().unwrap().inhibit_manager.create_inhibitor();
+        let cookie = self.lock().unwrap().insert_inhibitor(StoredInhibitor {
             inhibitor,
             name: application_name,
             reason: reason_for_inhibit,
         });
 
-        return Ok(cookie);
+        return Ok((cookie,));
     }
 
     fn un_inhibit(&mut self, cookie: u32) -> Result<(), dbus::MethodErr> {
-        let inhibitor = self.inhibitors_by_cookie.remove(&cookie);
+        log::info!("Uninhibiting {:?}", cookie);
+        let inhibitor = self.lock().unwrap().inhibitors_by_cookie.remove(&cookie);
+        log::info!("Inhibitor found? {:?}", inhibitor);
         if let Some(inhibitor) = inhibitor {
-            self.inhibit_manager.destroy_inhibitor(inhibitor.inhibitor);
+            self.lock().unwrap().inhibit_manager.destroy_inhibitor(inhibitor.inhibitor);
         }
 
         return Ok(());
@@ -72,6 +74,25 @@ impl OrgFreedesktopScreenSaver for OrgFreedesktopScreenSaverServer {
 
 #[tokio::main(flavor = "multi_thread")]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // configure logger to print thread id
+    let mut log_builder = pretty_env_logger::formatted_builder();
+    log_builder.format(|buf, record| {
+        use std::io::Write;
+        writeln!(
+            buf,
+            "[{:?}][{}] {}",
+            std::thread::current().id(),
+            record.level(),
+            record.args()
+        )
+    });
+
+    log_builder.filter_level(log::LevelFilter::Info);
+
+    log_builder.init();
+
+    log::info!("Starting screensaver bridge");
+
     // Connect to the D-Bus session bus (this is blocking, unfortunately).
     let (resource, c) = connection::new_session_sync()?;
 
@@ -94,7 +115,10 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     cr.set_async_support(Some((
         c.clone(),
         Box::new(|x| {
-            tokio::spawn(x);
+            // spawn and put a log statement inside
+            tokio::spawn(async move {
+                x.await;
+            });
         }),
     )));
 
@@ -105,10 +129,15 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     cr.insert(
         "/org/freedesktop/ScreenSaver",
         &[iface_token],
-        OrgFreedesktopScreenSaverServer {inhibit_manager, inhibitors_by_cookie: HashMap::new()},
+        Arc::new(Mutex::new(OrgFreedesktopScreenSaverServer {
+            inhibit_manager,
+            inhibitors_by_cookie: HashMap::new(),
+        })),
     );
 
-    eprintln!("Starting ScreenSaver to Wayland bridge");
+    // TODO: list the inhibitors that are active
+
+    log::log!(log::Level::Info, "Starting ScreenSaver to Wayland bridge");
     c.start_receive(
         MatchRule::new_method_call(),
         Box::new(move |msg, conn| {
