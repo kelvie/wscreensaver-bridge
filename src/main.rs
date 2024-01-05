@@ -51,37 +51,36 @@ impl OrgFreedesktopScreenSaver for Arc<Mutex<OrgFreedesktopScreenSaverServer>> {
         application_name: String,
         reason_for_inhibit: String,
     ) -> Result<(u32,), dbus::MethodErr> {
+        let inhibitor = self.lock().unwrap().inhibit_manager.create_inhibitor();
+        if let Err(e) = inhibitor {
+            log::error!("Failed to create inhibitor: {:?}", e);
+            return Err(dbus::MethodErr::failed(&format!(
+                "Failed to create inhibitor: {:?}",
+                e
+            )));
+        }
         log::info!(
-            "Inhibiting screensaver for {:?} because {:?}",
+            "Inhibiting screensaver for {:?} because {:?}.",
             application_name,
             reason_for_inhibit
         );
-        match self.lock().unwrap().inhibit_manager.create_inhibitor() {
-            Ok(inhibitor) => Ok((self.lock().unwrap().insert_inhibitor(StoredInhibitor {
-                inhibitor,
-                name: application_name,
-                reason: reason_for_inhibit,
-            }),)),
-            Err(e) => {
-                log::error!("Failed to create inhibitor: {:?}", e);
-                Err(dbus::MethodErr::failed(&format!(
-                    "Failed to create inhibitor: {:?}",
-                    e
-                )))
-            }
-        }
+        let cookie = self.lock().unwrap().insert_inhibitor(StoredInhibitor {
+            inhibitor: inhibitor.unwrap(),
+            name: application_name,
+            reason: reason_for_inhibit,
+        });
+        log::info!("Inhibitor cookie is {:?}", cookie);
+        return Ok((cookie,));
     }
 
     fn un_inhibit(&mut self, cookie: u32) -> Result<(), dbus::MethodErr> {
         log::info!("Uninhibiting {:?}", cookie);
         let inhibitor = self.lock().unwrap().inhibitors_by_cookie.remove(&cookie);
-        match inhibitor {
-            None => {
-                Err(dbus::MethodErr::failed(&format!(
-                    "No inhibitor with cookie {}",
-                    cookie
-                )))
-            },
+        return match inhibitor {
+            None => Err(dbus::MethodErr::failed(&format!(
+                "No inhibitor with cookie {}",
+                cookie
+            ))),
             Some(inhibitor) => {
                 match self
                     .lock()
@@ -99,7 +98,7 @@ impl OrgFreedesktopScreenSaver for Arc<Mutex<OrgFreedesktopScreenSaverServer>> {
                     }
                 }
             }
-        }
+        };
     }
 }
 
