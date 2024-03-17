@@ -1,3 +1,6 @@
+# DEPRECATED
+I no longer use nor need this, and will use https://wiki.hyprland.org/Hypr-Ecosystem/hypridle/ instead.
+
 # wscreensaver-bridge
 
 This is a D-Bus server that implements
